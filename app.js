@@ -1,64 +1,271 @@
-// Games rule
+class Bricks {
+  constructor() {
+    this.colors = [
+      "Orange",
+      "Teal",
+      "Magenta",
+      "Blue",
+      "Yellow",
+      "Red",
+      "Green",
+      "Maroon",
+    ];
+    this.brickSpace = 20;
 
-/*
-1. Create the Canvas and draw on it
-2. Move the ball
-3. Bounce off the walls
-4. Paddle and keyboard controls
-5. Games over
-6. Build the brick field
-7. Collision detection
-8. Track the score and win
-9. Mouse controls
-10. Finishing up
-
-*/
-
-// HTML canvas
-const canvas = document.createElement("canvas");
-
-//   cnavas height and widht
-canvas.height = innerHeight;
-canvas.width = innerWidth;
-
-// cnavas append
-document.body.appendChild(canvas);
-
-// canvas animation
-const c = canvas.getContext("2d");
-
-// drow ball
-
-let x = canvas.width / 2;
-let y = canvas.height - 30;
-
-let dx = 2;
-let dy = -2;
-
-function drawBall() {
-  c.beginPath();
-  c.arc(x, y, 10, 0, Math.PI * 2);
-  c.fillStyle = "rgb(255, 0, 0, 0.4)";
-  c.fill();
-  c.closePath();
-}
-
-let ballRadius = 1;
-
-function draw() {
-  // create a ball
-  c.clearRect(0, 0, canvas.width, canvas.height);
-  drawBall();
-
-  if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-    dx = -dx;
-  }
-  if (y + dy > canvas.height - ballRadius || y + dy < ballRadius) {
-    dy = -dy;
+    this.init();
   }
 
-  x += dx;
-  y += dy;
+  init() {
+    this.rows = 1;
+    this.cols = 5;
+
+    this.createBricks();
+  }
+
+  advance() {
+    this.rows++;
+    this.cols++;
+
+    this.createBricks();
+  }
+
+  createBricks() {
+    this.brickWidth = (width - (this.cols + 1) * this.brickSpace) / this.cols;
+    this.brickHeight = this.brickWidth * 0.4;
+
+    this.bricks = [];
+
+    for (let row = 0; row < this.rows; row++) {
+      for (let col = 0; col < this.cols; col++) {
+        let x = this.brickSpace + col * (this.brickSpace + this.brickWidth);
+        let y = this.brickSpace + row * (this.brickSpace + this.brickHeight);
+
+        this.bricks.push({ x, y });
+      }
+    }
+  }
+
+  display() {
+    stroke("black");
+
+    let clr = this.colors[(this.rows - 1) % this.colors.length];
+    fill(clr);
+
+    for (let brick of this.bricks) {
+      rect(brick.x, brick.y, this.brickWidth, this.brickHeight);
+    }
+  }
+
+  update() {
+    for (let i = this.bricks.length - 1; i >= 0; i--) {
+      let brick = this.bricks[i];
+
+      if (brick.hit) {
+        brick.y += 20;
+      }
+
+      if (brick.y > height) {
+        this.bricks.splice(i, 1);
+      }
+    }
+  }
+
+  // Returns true if the ball hits any brick
+  hit(ball) {
+    for (let i = this.bricks.length - 1; i >= 0; i--) {
+      let brick = this.bricks[i];
+
+      if (brick.hit) continue;
+
+      let collide = collisionCircleRect(
+        ball.x,
+        ball.y,
+        ball.r,
+        brick.x,
+        brick.y,
+        this.brickWidth,
+        this.brickHeight
+      );
+
+      if (collide) {
+        brick.hit = true;
+        return true;
+      }
+    }
+
+    return false;
+  }
 }
 
-setInterval(draw, 10);
+class Paddle {
+  constructor(w, h) {
+    this.w = w;
+    this.h = h;
+
+    this.x = (width - this.w) / 2;
+    this.y = height - this.h * 2;
+  }
+
+  init() {
+    this.x = (width - this.w) / 2;
+  }
+
+  display() {
+    stroke("black");
+    fill("brown");
+
+    rect(this.x, this.y, this.w, this.h);
+  }
+
+  update() {
+    if (keyIsDown(LEFT_ARROW) && this.x > 0) {
+      this.x -= 10;
+    } else if (keyIsDown(RIGHT_ARROW) && this.x < width - this.w) {
+      this.x += 10;
+    }
+  }
+}
+
+class Ball {
+  constructor(paddle, bricks) {
+    this.paddle = paddle;
+    this.bricks = bricks;
+
+    this.balls = 3;
+
+    this.r = 10;
+    this.x = this.paddle.x + this.paddle.w / 2;
+    this.y = this.paddle.y - this.r;
+
+    this.dx = random([-1, 1]);
+    this.dy = -1;
+    this.speed = 3;
+
+    this.inMotion = false;
+  }
+
+  init() {
+    this.balls = 3;
+    this.inMotion = false;
+  }
+
+  display() {
+    stroke("black");
+    fill("lime");
+
+    circle(this.x, this.y, this.r);
+  }
+
+  update() {
+    if (this.inMotion) {
+      this.updateInMotion();
+    } else {
+      this.updateOnPaddle();
+    }
+  }
+
+  updateInMotion() {
+    this.x += this.dx * this.speed;
+    this.y += this.dy * this.speed;
+
+    // collision with edges
+    if (this.x < 0 || this.x > width) {
+      this.dx *= -1;
+
+      sound("click4");
+    }
+
+    if (this.y < 0) {
+      this.dy *= -1;
+
+      sound("click4");
+    }
+
+    // collision with paddle
+    if (
+      this.y > this.paddle.y - this.speed &&
+      this.paddle.x < this.x &&
+      this.paddle.x + this.paddle.w > this.x
+    ) {
+      this.y = this.paddle.y - this.r;
+      this.dy *= -1;
+
+      sound("click2");
+    }
+
+    // loose ball
+    if (this.y > this.paddle.y + this.speed) {
+      this.balls--;
+      this.inMotion = false;
+    }
+
+    // check collision with bricks
+    if (this.bricks.hit(this)) {
+      this.dy *= -1;
+
+      sound("click4");
+    }
+  }
+
+  updateOnPaddle() {
+    if (keyIsDown(32)) {
+      this.inMotion = true;
+    }
+
+    this.x = this.paddle.x + this.paddle.w / 2;
+    this.y = this.paddle.y - this.r;
+  }
+}
+
+class Game {
+  constructor() {
+    background("Field");
+    // music('8 bit intro', 0.3);
+
+    this.bricks = new Bricks();
+    this.paddle = new Paddle(100, 20);
+    this.ball = new Ball(this.paddle, this.bricks);
+  }
+
+  display() {
+    this.ball.display();
+    this.paddle.display();
+    this.bricks.display();
+
+    this.displayStats();
+  }
+
+  displayStats() {
+    noStroke();
+    fill("black");
+    text("Bricks: " + this.bricks.bricks.length, 10, height - 30);
+    text("Balls: " + this.ball.balls, 10, height - 10);
+  }
+
+  update() {
+    this.ball.update();
+    this.paddle.update();
+    this.bricks.update();
+
+    if (this.ball.balls <= 0) {
+      this.bricks.init();
+      this.paddle.init();
+      this.ball.init();
+    }
+
+    if (this.bricks.bricks.length <= 0) {
+      this.bricks.advance();
+      this.paddle.init();
+      this.ball.init();
+    }
+  }
+}
+
+let game = new Game();
+
+function loop() {
+  clear();
+
+  game.update();
+  game.display();
+}
